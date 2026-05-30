@@ -270,6 +270,61 @@
     z-index: 99;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ── 자르기 모달 ── */
+  .crop-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .crop-overlay.show { display: flex; }
+
+  .crop-box {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+  .crop-box.grabbing { cursor: grabbing; }
+  .crop-box canvas { display: block; }
+  .crop-box .crop-frame {
+    position: absolute;
+    inset: 0;
+    border: 2px solid rgba(255,255,255,0.8);
+    pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+  }
+
+  .crop-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .crop-btn {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .crop-btn.confirm { background: #4a90d9; color: #fff; }
+  .crop-btn.cancel  { background: #fff; color: #333; }
+
+  .crop-zoom {
+    display: flex; align-items: center; gap: 8px;
+    color: #fff; font-size: 13px;
+  }
+  .crop-zoom input { width: 100px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -315,12 +370,30 @@
 </div>
 </div>
 
+<!-- 자르기 모달 -->
+<div class="crop-overlay" id="crop-overlay">
+  <div class="crop-box" id="crop-box">
+    <canvas id="crop-canvas"></canvas>
+    <div class="crop-frame"></div>
+  </div>
+  <div class="crop-zoom">
+    <span>축소</span>
+    <input type="range" id="crop-zoom-range" min="100" max="300" value="100" step="1">
+    <span>확대</span>
+  </div>
+  <div class="crop-controls">
+    <button class="crop-btn cancel" onclick="closeCrop()">취소</button>
+    <button class="crop-btn confirm" onclick="confirmCrop()">자르기 완료</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-  let cells = Array.from({ length: 9 }, () => ({ src: null }));
+  let cells = Array.from({ length: 9 }, () => ({ src: null, cropped: null }));
 
+  // ── 렌더 ──
   function render() {
     const grid = document.getElementById('grid');
     grid.innerHTML = '';
@@ -330,21 +403,29 @@
 
       if (cell.src) {
         const img = document.createElement('img');
-        img.src = cell.src;
+        img.src = cell.cropped || cell.src;
         div.appendChild(img);
 
         const del = document.createElement('button');
         del.className = 'cell-del';
         del.textContent = '×';
-        del.onclick = e => { e.stopPropagation(); cells[i].src = null; render(); };
+        del.onclick = e => { e.stopPropagation(); cells[i] = { src: null, cropped: null }; render(); };
         div.appendChild(del);
+
+        // 자르기 버튼
+        const cropBtn = document.createElement('button');
+        cropBtn.className = 'cell-del';
+        cropBtn.textContent = '✂';
+        cropBtn.style.cssText = 'right:28px; background:rgba(0,0,0,0.55);';
+        cropBtn.onclick = e => { e.stopPropagation(); openCrop(i); };
+        div.appendChild(cropBtn);
       } else {
         const em = document.createElement('div');
         em.className = 'cell-empty';
         div.appendChild(em);
       }
 
-      div.addEventListener('click', () => upload(i));
+      div.addEventListener('click', () => { if (!cell.src) upload(i); });
       div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
       div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
       div.addEventListener('drop', e => {
@@ -366,15 +447,96 @@
 
   function read(file, i) {
     const r = new FileReader();
-    r.onload = e => { cells[i].src = e.target.result; render(); };
+    r.onload = e => { cells[i] = { src: e.target.result, cropped: null }; openCrop(i); };
     r.readAsDataURL(file);
   }
 
   function clearAll() {
-    cells = cells.map(() => ({ src: null })); render();
+    cells = cells.map(() => ({ src: null, cropped: null })); render();
     toast('초기화했어요');
   }
 
+  // ── 자르기 ──
+  let cropIdx = -1;
+  let cropImg = new Image();
+  let cropX = 0, cropY = 0, cropZoom = 1;
+  let dragStart = null;
+  const BOX = 300;
+
+  function openCrop(i) {
+    cropIdx = i;
+    cropX = 0; cropY = 0; cropZoom = 1;
+    document.getElementById('crop-zoom-range').value = 100;
+
+    cropImg = new Image();
+    cropImg.onload = () => {
+      drawCrop();
+      document.getElementById('crop-overlay').classList.add('show');
+    };
+    cropImg.src = cells[i].src;
+  }
+
+  function drawCrop() {
+    const canvas = document.getElementById('crop-canvas');
+    canvas.width = BOX; canvas.height = BOX;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, BOX, BOX);
+
+    const iw = cropImg.naturalWidth * cropZoom;
+    const ih = cropImg.naturalHeight * cropZoom;
+    ctx.drawImage(cropImg, cropX, cropY, iw, ih);
+  }
+
+  function closeCrop() {
+    document.getElementById('crop-overlay').classList.remove('show');
+    if (cropIdx >= 0 && !cells[cropIdx].cropped) render();
+    cropIdx = -1;
+  }
+
+  function confirmCrop() {
+    const canvas = document.getElementById('crop-canvas');
+    cells[cropIdx].cropped = canvas.toDataURL('image/png');
+    document.getElementById('crop-overlay').classList.remove('show');
+    cropIdx = -1;
+    render();
+  }
+
+  // 드래그
+  const cropBox = document.getElementById('crop-box');
+  cropBox.addEventListener('mousedown', e => {
+    dragStart = { x: e.clientX - cropX, y: e.clientY - cropY };
+    cropBox.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragStart) return;
+    cropX = e.clientX - dragStart.x;
+    cropY = e.clientY - dragStart.y;
+    drawCrop();
+  });
+  window.addEventListener('mouseup', () => { dragStart = null; cropBox.classList.remove('grabbing'); });
+
+  // 터치
+  cropBox.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    dragStart = { x: t.clientX - cropX, y: t.clientY - cropY };
+  });
+  cropBox.addEventListener('touchmove', e => {
+    if (!dragStart) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    cropX = t.clientX - dragStart.x;
+    cropY = t.clientY - dragStart.y;
+    drawCrop();
+  }, { passive: false });
+  cropBox.addEventListener('touchend', () => { dragStart = null; });
+
+  // 줌
+  document.getElementById('crop-zoom-range').addEventListener('input', function() {
+    cropZoom = this.value / 100;
+    drawCrop();
+  });
+
+  // ── 저장 ──
   async function saveImage() {
     const ov = document.getElementById('saving');
     const panel = document.getElementById('color-panel');
@@ -382,39 +544,64 @@
     panel.classList.add('hidden');
     descLine.style.borderBottom = 'none';
     document.querySelectorAll('.cell-del').forEach(b => b.style.display = 'none');
-    // 스피너는 카드 밖에 표시
-    ov.style.position = 'fixed';
-    ov.style.inset = '0';
-    ov.style.borderRadius = '0';
+    ov.style.position = 'fixed'; ov.style.inset = '0'; ov.style.borderRadius = '0';
     ov.classList.add('show');
     try {
       await new Promise(r => setTimeout(r, 40));
-      ov.classList.remove('show'); // 캡처 전에 숨김
+      ov.classList.remove('show');
       await new Promise(r => setTimeout(r, 30));
+
+      // object-fit:cover 문제 해결: 각 셀 img를 크롭된 canvas로 교체
+      const imgs = document.querySelectorAll('.cell img');
+      const origSrcs = [];
+      imgs.forEach(img => {
+        origSrcs.push(img.src);
+        const iw = img.naturalWidth, ih = img.naturalHeight;
+        const size = Math.min(iw, ih);
+        const ox = (iw - size) / 2, oy = (ih - size) / 2;
+        const c = document.createElement('canvas');
+        c.width = size; c.height = size;
+        c.getContext('2d').drawImage(img, ox, oy, size, size, 0, 0, size, size);
+        img.src = c.toDataURL('image/png');
+      });
+
+      await new Promise(r => setTimeout(r, 30));
+
       const wrapper = document.getElementById('capture-wrapper');
       const card = document.getElementById('card');
       wrapper.style.background = '#fff';
       wrapper.style.padding = '20px';
       card.style.border = '1px solid #d0d0d0';
-      await new Promise(r => setTimeout(r, 30));
+
       const cvs = await html2canvas(wrapper, {
         scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#fff', logging: false
       });
-      wrapper.style.background = '';
-      wrapper.style.padding = '';
-      card.style.border = '';
 
-      const a = document.createElement('a');
-      a.download = '로봇이 아닙니다.png';
-      a.href = cvs.toDataURL('image/png');
-      a.click();
+      wrapper.style.background = ''; wrapper.style.padding = ''; card.style.border = '';
+
+      // img src 복원 (캡처 완료 후)
+      imgs.forEach((img, idx) => img.src = origSrcs[idx]);
+
+      const dataUrl = cvs.toDataURL('image/png');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        // iOS: 새 탭에 이미지 열기 (길게 눌러서 저장)
+        const win = window.open();
+        win.document.write(`<html><head><title>로봇이 아닙니다</title><meta name="viewport" content="width=device-width"><style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;}</style></head><body><img src="${dataUrl}"/><p style="color:#fff;text-align:center;font-size:13px;padding:10px;">이미지를 길게 눌러 저장하세요</p></body></html>`);
+        win.document.close();
+      } else {
+        const a = document.createElement('a');
+        a.download = '로봇이 아닙니다.png';
+        a.href = dataUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
       toast('저장 완료!');
-    } catch(e) { toast('⚠️ 저장 실패'); }
+    } catch(e) { toast('저장 실패'); }
     document.querySelectorAll('.cell-del').forEach(b => b.style.display = '');
     descLine.style.borderBottom = '1px solid rgba(255,255,255,0.4)';
-    ov.style.position = '';
-    ov.style.inset = '';
-    ov.style.borderRadius = '';
+    ov.style.position = ''; ov.style.inset = ''; ov.style.borderRadius = '';
     ov.classList.remove('show');
     panel.classList.remove('hidden');
   }
