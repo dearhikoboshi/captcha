@@ -23,7 +23,7 @@
   /* ── 전체 카드 ── */
   .card {
     background: #fff;
-    width: 318px;
+    width: min(318px, calc(100vw - 40px));
     border-radius: 4px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.22), 0 1px 6px rgba(0,0,0,0.12);
     position: relative;
@@ -144,11 +144,14 @@
   .footer {
     display: flex;
     align-items: center;
-    padding: 10px 0 10px 4px;
+    padding: 6px 0 0 4px;
     background: #fff;
     border-top: 1px solid #e0e0e0;
     gap: 2px;
     margin: 6px -8px -8px -8px;
+    padding-bottom: 8px;
+    overflow: hidden;
+    border-radius: 0 0 4px 4px;
   }
 
   .icon-btn {
@@ -219,7 +222,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    width: 310px;
+    width: min(318px, calc(100vw - 40px));
     background: #fff;
     border-radius: 8px;
     padding: 9px 16px;
@@ -346,7 +349,21 @@
     display: flex; align-items: center; gap: 8px;
     color: #fff; font-size: 13px;
   }
-  .crop-zoom input { width: 100px; cursor: pointer; }
+  .btn-save-panel {
+    background: #4a90d9;
+    color: #fff;
+    border: none;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.14s;
+    margin-left: 4px;
+  }
+  .btn-save-panel:hover { background: #2f78c5; }
 </style>
 </head>
 <body>
@@ -355,6 +372,8 @@
 <div class="color-panel" id="color-panel">
   <label for="pick-color">색상</label>
   <input type="color" id="pick-color" value="#4a90d9" oninput="applyColor()">
+  <div style="flex:1"></div>
+  <button class="btn-save-panel" onclick="saveImage()">저장하기</button>
 </div>
 
 <div id="capture-wrapper" style="display:inline-block;">
