@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로봇이 아닙니다</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #e8eaf0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 0;
+  }
+
+  /* ── 전체 카드 ── */
+  .card {
+    background: #fff;
+    width: 318px;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.22), 0 1px 6px rgba(0,0,0,0.12);
+    position: relative;
+    padding: 8px;
+  }
+
+  /* ── 파란 헤더 ── */
+  .header {
+    background: #4a90d9;
+    padding: 18px 20px 16px 20px;
+    border-radius: 2px 2px 0 0;
+  }
+
+  .header-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1.15;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+    cursor: text;
+    outline: none;
+    display: inline-block;
+    min-width: 40px;
+  }
+
+  .header-title:focus {
+    border-bottom: 2px solid rgba(255,255,255,0.6);
+  }
+
+  .header-desc {
+    font-size: 11.5px;
+    color: #fff;
+    line-height: 1.55;
+    font-weight: 400;
+    opacity: 0.97;
+  }
+
+  /* ── 3×3 그리드 ── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    background: #fff;
+    margin-top: 4px;
+  }
+
+  .cell {
+    position: relative;
+    aspect-ratio: 1;
+    background: #d8dce4;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.18s ease;
+  }
+
+  .cell:hover img { transform: scale(1.05); }
+
+  .cell-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #9aa3b0;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .cell:hover .cell-empty {
+    background: #cdd4de;
+    color: #4a90d9;
+  }
+
+  .cell-empty svg { width: 24px; height: 24px; }
+  .cell-empty span { font-size: 10px; font-weight: 500; }
+
+  /* delete X */
+  .cell-del {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.52);
+    border: none;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+  }
+
+  .cell:hover .cell-del { display: flex; }
+  .cell-del:hover { background: rgba(210,30,30,0.8); }
+
+  /* drag-over */
+  .cell.drag-over::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px dashed #4a90d9;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  /* ── 하단 푸터 ── */
+  .footer {
+    display: flex;
+    align-items: center;
+    padding: 10px 0 10px 4px;
+    background: #fff;
+    border-top: 1px solid #e0e0e0;
+    gap: 2px;
+    margin: 6px -8px -8px -8px;
+  }
+
+  .icon-btn {
+    width: 44px; height: 44px;
+    border: none; background: transparent;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: #666;
+    transition: background 0.14s, color 0.14s;
+    flex-shrink: 0;
+  }
+
+  .icon-btn:hover { background: #e8f0fe; color: #4a90d9; }
+  .icon-btn svg { width: 26px; height: 26px; }
+
+  .footer-spacer { flex: 1; }
+
+  .btn-confirm {
+    background: #4a90d9;
+    color: #fff;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.1px;
+    transition: background 0.14s, box-shadow 0.14s;
+    flex-shrink: 0;
+    align-self: stretch;
+    margin-right: 8px;
+  }
+
+  .btn-confirm:hover {
+    background: #2f78c5;
+    box-shadow: 0 2px 8px rgba(74,144,217,0.4);
+  }
+
+  /* ── saving overlay ── */
+  .saving {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.78);
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    font-size: 14px;
+    font-weight: 600;
+    color: #4a90d9;
+    gap: 10px;
+  }
+  .saving.show { display: flex; }
+  .spin {
+    width: 19px; height: 19px;
+    border: 2.5px solid #cce0f5;
+    border-top-color: #4a90d9;
+    border-radius: 50%;
+    animation: sp 0.7s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* ── 색상 설정 패널 ── */
+  .color-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 310px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 9px 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.10);
+    margin-bottom: 12px;
+  }
+
+  .color-panel label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  input[type=color] {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border: 2px solid #dde2ea;
+    border-radius: 6px;
+    padding: 2px;
+    cursor: pointer;
+    background: transparent;
+    flex-shrink: 0;
+  }
+
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 3px; }
+  input[type=color]::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+  .color-panel.hidden { display: none; }
+
+  /* ── toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: #303134;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s, transform 0.22s;
+    white-space: nowrap;
+    z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- 색상 조정 패널 (카드 위) -->
+<div class="color-panel" id="color-panel">
+  <label for="pick-color">색상</label>
+  <input type="color" id="pick-color" value="#4a90d9" oninput="applyColor()">
+</div>
+
+<div id="capture-wrapper" style="display:inline-block;">
+<div class="card" id="card">
+
+  <!-- 파란 헤더 -->
+  <div class="header">
+    <div class="header-title" id="title" contenteditable="true" spellcheck="false">페어</div>
+    <div class="header-desc"><span id="desc-line1" contenteditable="true" spellcheck="false" style="outline:none; border-bottom: 1px solid rgba(255,255,255,0.4); cursor:text;">가 있는 이미지를 모두 선택하세요.</span><br>위의 조건과 일치하는 새 이미지를 모두 선택했으면<br>확인을 클릭하세요.</div>
+  </div>
+
+  <!-- 3×3 그리드 -->
+  <div class="grid" id="grid"></div>
+
+  <!-- 푸터 -->
+  <div class="footer">
+    <!-- 새로고침 -->
+    <button class="icon-btn" onclick="clearAll()" title="초기화">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    </button>
+    <!-- 헤드폰 -->
+    <button class="icon-btn" title="오디오">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3C7.03 3 3 7.03 3 12v4c0 1.1.9 2 2 2h1c1.1 0 2-.9 2-2v-3c0-1.1-.9-2-2-2H5.07C5.56 7.19 8.48 5 12 5s6.44 2.19 6.93 6H17c-1.1 0-2 .9-2 2v3c0 1.1.9 2 2 2h1c1.1 0 2-.9 2-2v-4c0-4.97-4.03-9-9-9z"/></svg>
+    </button>
+    <!-- 정보 -->
+    <button class="icon-btn" title="정보">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+    </button>
+
+    <div class="footer-spacer"></div>
+    <button class="btn-confirm" onclick="saveImage()">확인</button>
+  </div>
+
+  <div class="saving" id="saving"><div class="spin"></div>저장 중…</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+  let cells = Array.from({ length: 9 }, () => ({ src: null }));
+
+  function render() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    cells.forEach((cell, i) => {
+      const div = document.createElement('div');
+      div.className = 'cell';
+
+      if (cell.src) {
+        const img = document.createElement('img');
+        img.src = cell.src;
+        div.appendChild(img);
+
+        const del = document.createElement('button');
+        del.className = 'cell-del';
+        del.textContent = '×';
+        del.onclick = e => { e.stopPropagation(); cells[i].src = null; render(); };
+        div.appendChild(del);
+      } else {
+        const em = document.createElement('div');
+        em.className = 'cell-empty';
+        div.appendChild(em);
+      }
+
+      div.addEventListener('click', () => upload(i));
+      div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
+      div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+      div.addEventListener('drop', e => {
+        e.preventDefault(); div.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) read(f, i);
+      });
+
+      grid.appendChild(div);
+    });
+  }
+
+  function upload(i) {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => { if (inp.files[0]) read(inp.files[0], i); };
+    inp.click();
+  }
+
+  function read(file, i) {
+    const r = new FileReader();
+    r.onload = e => { cells[i].src = e.target.result; render(); };
+    r.readAsDataURL(file);
+  }
+
+  function clearAll() {
+    cells = cells.map(() => ({ src: null })); render();
+    toast('초기화했어요');
+  }
+
+  async function saveImage() {
+    const ov = document.getElementById('saving');
+    const panel = document.getElementById('color-panel');
+    const descLine = document.getElementById('desc-line1');
+    panel.classList.add('hidden');
+    descLine.style.borderBottom = 'none';
+    document.querySelectorAll('.cell-del').forEach(b => b.style.display = 'none');
+    // 스피너는 카드 밖에 표시
+    ov.style.position = 'fixed';
+    ov.style.inset = '0';
+    ov.style.borderRadius = '0';
+    ov.classList.add('show');
+    try {
+      await new Promise(r => setTimeout(r, 40));
+      ov.classList.remove('show'); // 캡처 전에 숨김
+      await new Promise(r => setTimeout(r, 30));
+      const wrapper = document.getElementById('capture-wrapper');
+      const card = document.getElementById('card');
+      wrapper.style.background = '#fff';
+      wrapper.style.padding = '20px';
+      card.style.border = '1px solid #d0d0d0';
+      await new Promise(r => setTimeout(r, 30));
+      const cvs = await html2canvas(wrapper, {
+        scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#fff', logging: false
+      });
+      wrapper.style.background = '';
+      wrapper.style.padding = '';
+      card.style.border = '';
+
+      const a = document.createElement('a');
+      a.download = '로봇이 아닙니다.png';
+      a.href = cvs.toDataURL('image/png');
+      a.click();
+      toast('저장 완료!');
+    } catch(e) { toast('⚠️ 저장 실패'); }
+    document.querySelectorAll('.cell-del').forEach(b => b.style.display = '');
+    descLine.style.borderBottom = '1px solid rgba(255,255,255,0.4)';
+    ov.style.position = '';
+    ov.style.inset = '';
+    ov.style.borderRadius = '';
+    ov.classList.remove('show');
+    panel.classList.remove('hidden');
+  }
+
+  function applyColor() {
+    const c = document.getElementById('pick-color').value;
+    document.querySelector('.header').style.background = c;
+    document.querySelector('.btn-confirm').style.background = c;
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  render();
+</script>
+</body>
+</html>
