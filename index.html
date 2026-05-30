@@ -591,38 +591,59 @@
       ov.classList.remove('show');
       await new Promise(r => setTimeout(r, 30));
 
-      // object-fit:cover 문제 해결: 각 셀 img를 크롭된 canvas로 교체
-      const imgs = document.querySelectorAll('.cell img');
-      const origSrcs = [];
-      imgs.forEach(img => {
-        origSrcs.push(img.src);
-        const iw = img.naturalWidth, ih = img.naturalHeight;
-        const size = Math.min(iw, ih);
-        const ox = (iw - size) / 2, oy = (ih - size) / 2;
-        const c = document.createElement('canvas');
-        c.width = size; c.height = size;
-        c.getContext('2d').drawImage(img, ox, oy, size, size, 0, 0, size, size);
-        img.src = c.toDataURL('image/png');
-      });
-
-      await new Promise(r => setTimeout(r, 30));
-
-      const wrapper = document.getElementById('capture-wrapper');
+      // 카드 실제 크기 측정
       const card = document.getElementById('card');
-      wrapper.style.background = '#fff';
-      wrapper.style.padding = '20px';
-      card.style.border = '1px solid #d0d0d0';
+      const cardRect = card.getBoundingClientRect();
+      const SCALE = 2;
+      const PAD = 20; // 저장 시 여백
+      const CW = (cardRect.width + PAD * 2) * SCALE;
+      const CH = (cardRect.height + PAD * 2) * SCALE;
 
-      const cvs = await html2canvas(wrapper, {
-        scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#fff', logging: false
+      const final = document.createElement('canvas');
+      final.width = CW; final.height = CH;
+      const ctx = final.getContext('2d');
+
+      // 흰 배경
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, CW, CH);
+
+      // html2canvas로 카드만 캡처 (img 교체 없이)
+      const cvs = await html2canvas(card, {
+        scale: SCALE,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#fff',
+        logging: false,
+        imageTimeout: 0,
+        onclone: (doc) => {
+          // 복제된 DOM에서 각 img를 object-fit:cover 크롭으로 교체
+          doc.querySelectorAll('.cell').forEach(cell => {
+            const img = cell.querySelector('img');
+            if (!img) return;
+            const cellW = cell.offsetWidth || 96;
+            const cellH = cell.offsetHeight || 96;
+            const iw = img.naturalWidth, ih = img.naturalHeight;
+            if (!iw || !ih) return;
+            const scale = Math.max(cellW / iw, cellH / ih);
+            const dw = iw * scale, dh = ih * scale;
+            const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
+            const c = document.createElement('canvas');
+            c.width = cellW; c.height = cellH;
+            c.getContext('2d').drawImage(img, ox, oy, dw, dh);
+            img.src = c.toDataURL('image/png');
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'fill';
+          });
+          // 카드 외곽선
+          doc.getElementById('card').style.border = '1px solid #d0d0d0';
+        }
       });
 
-      wrapper.style.background = ''; wrapper.style.padding = ''; card.style.border = '';
+      // 카드 이미지를 여백 포함 최종 canvas에 그리기
+      ctx.drawImage(cvs, PAD * SCALE, PAD * SCALE);
 
-      // img src 복원 (캡처 완료 후)
-      imgs.forEach((img, idx) => img.src = origSrcs[idx]);
-
-      const dataUrl = cvs.toDataURL('image/png');
+      const dataUrl = final.toDataURL('image/png');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (isIOS) {
         document.getElementById('img-modal-img').src = dataUrl;
@@ -636,7 +657,7 @@
         document.body.removeChild(a);
       }
       toast('저장 완료!');
-    } catch(e) { toast('저장 실패'); }
+    } catch(e) { console.error(e); toast('저장 실패'); }
     document.querySelectorAll('.cell-del').forEach(b => b.style.display = '');
     descLine.style.borderBottom = '1px solid rgba(255,255,255,0.4)';
     ov.style.position = ''; ov.style.inset = ''; ov.style.borderRadius = '';
