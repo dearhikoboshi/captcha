@@ -270,6 +270,28 @@
     z-index: 99;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ── iOS 이미지 미리보기 모달 ── */
+  .img-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+  }
+  .img-modal.show { display: flex; }
+  .img-modal img { max-width: 100%; max-height: 75vh; border-radius: 6px; }
+  .img-modal p { color: #fff; font-size: 13px; text-align: center; }
+  .img-modal button {
+    padding: 9px 24px; border: none; border-radius: 6px;
+    background: #fff; color: #333; font-size: 14px; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+  }
+
   /* ── 자르기 모달 ── */
   .crop-overlay {
     display: none;
@@ -370,6 +392,13 @@
 </div>
 </div>
 
+<!-- iOS 이미지 미리보기 모달 -->
+<div class="img-modal" id="img-modal">
+  <img id="img-modal-img" src="" alt="">
+  <p>이미지를 길게 눌러 저장하세요</p>
+  <button onclick="document.getElementById('img-modal').classList.remove('show')">닫기</button>
+</div>
+
 <!-- 자르기 모달 -->
 <div class="crop-overlay" id="crop-overlay">
   <div class="crop-box" id="crop-box">
@@ -465,11 +494,18 @@
 
   function openCrop(i) {
     cropIdx = i;
-    cropX = 0; cropY = 0; cropZoom = 1;
-    document.getElementById('crop-zoom-range').value = 100;
-
     cropImg = new Image();
     cropImg.onload = () => {
+      const iw = cropImg.naturalWidth;
+      const ih = cropImg.naturalHeight;
+      // 이미지가 BOX 안에 딱 들어오도록 초기 zoom 계산
+      cropZoom = Math.max(BOX / iw, BOX / ih);
+      // 가운데 정렬
+      cropX = (BOX - iw * cropZoom) / 2;
+      cropY = (BOX - ih * cropZoom) / 2;
+      document.getElementById('crop-zoom-range').min = Math.round(cropZoom * 100);
+      document.getElementById('crop-zoom-range').max = Math.round(cropZoom * 100 * 3);
+      document.getElementById('crop-zoom-range').value = Math.round(cropZoom * 100);
       drawCrop();
       document.getElementById('crop-overlay').classList.add('show');
     };
@@ -481,7 +517,6 @@
     canvas.width = BOX; canvas.height = BOX;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, BOX, BOX);
-
     const iw = cropImg.naturalWidth * cropZoom;
     const ih = cropImg.naturalHeight * cropZoom;
     ctx.drawImage(cropImg, cropX, cropY, iw, ih);
@@ -532,7 +567,12 @@
 
   // 줌
   document.getElementById('crop-zoom-range').addEventListener('input', function() {
+    const cx = BOX / 2, cy = BOX / 2;
+    const prevZoom = cropZoom;
     cropZoom = this.value / 100;
+    // 중심 기준으로 zoom
+    cropX = cx - (cx - cropX) * (cropZoom / prevZoom);
+    cropY = cy - (cy - cropY) * (cropZoom / prevZoom);
     drawCrop();
   });
 
@@ -585,10 +625,8 @@
       const dataUrl = cvs.toDataURL('image/png');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (isIOS) {
-        // iOS: 새 탭에 이미지 열기 (길게 눌러서 저장)
-        const win = window.open();
-        win.document.write(`<html><head><title>로봇이 아닙니다</title><meta name="viewport" content="width=device-width"><style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;}</style></head><body><img src="${dataUrl}"/><p style="color:#fff;text-align:center;font-size:13px;padding:10px;">이미지를 길게 눌러 저장하세요</p></body></html>`);
-        win.document.close();
+        document.getElementById('img-modal-img').src = dataUrl;
+        document.getElementById('img-modal').classList.add('show');
       } else {
         const a = document.createElement('a');
         a.download = '로봇이 아닙니다.png';
