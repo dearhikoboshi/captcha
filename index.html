@@ -183,7 +183,7 @@
     letter-spacing: 0.1px;
     transition: background 0.14s, box-shadow 0.14s;
     flex-shrink: 0;
-    align-self: center;
+    align-self: stretch;
     margin-right: 8px;
   }
 
@@ -613,7 +613,7 @@
       // 카드 실제 크기 측정
       const card = document.getElementById('card');
       const cardRect = card.getBoundingClientRect();
-      const SCALE = 2;
+      const SCALE = 4;
       const PAD = 20; // 저장 시 여백
       const CW = (cardRect.width + PAD * 2) * SCALE;
       const CH = (cardRect.height + PAD * 2) * SCALE;
@@ -634,13 +634,13 @@
         backgroundColor: '#fff',
         logging: false,
         imageTimeout: 0,
-        onclone: (doc) => {
-          // 복제된 DOM에서 각 img를 object-fit:cover 크롭으로 교체
+        onclone: (doc, el) => {
           doc.querySelectorAll('.cell').forEach(cell => {
             const img = cell.querySelector('img');
             if (!img) return;
-            const cellW = cell.offsetWidth || 96;
-            const cellH = cell.offsetHeight || 96;
+            const rect = cell.getBoundingClientRect();
+            const cellW = rect.width || 96;
+            const cellH = rect.height || 96;
             const iw = img.naturalWidth, ih = img.naturalHeight;
             if (!iw || !ih) return;
             const scale = Math.max(cellW / iw, cellH / ih);
@@ -654,7 +654,6 @@
             img.style.height = '100%';
             img.style.objectFit = 'fill';
           });
-          // 카드 외곽선
           doc.getElementById('card').style.border = '1px solid #d0d0d0';
         }
       });
