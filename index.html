@@ -255,6 +255,22 @@
 
   .color-panel.hidden { display: none; }
 
+  /* ── 커미션주 닉네임 입력 ── */
+  #nick-panel { margin-top: -6px; }
+  #nick-input {
+    flex: 1;
+    border: 2px solid #dde2ea;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #555;
+    outline: none;
+    transition: border-color 0.14s;
+  }
+  #nick-input:focus { border-color: #4a90d9; }
+  #nick-input::placeholder { color: #b5bcc7; }
+
   /* ── toast ── */
   .toast {
     position: fixed;
@@ -374,6 +390,12 @@
   <input type="color" id="pick-color" value="#4a90d9" oninput="applyColor()">
   <div style="flex:1"></div>
   <button class="btn-save-panel" onclick="saveImage()">저장하기</button>
+</div>
+
+<!-- 커미션주 닉네임 패널 -->
+<div class="color-panel" id="nick-panel">
+  <label for="nick-input">커미션주</label>
+  <input type="text" id="nick-input" placeholder="닉네임 입력" maxlength="30">
 </div>
 
 <div id="capture-wrapper" style="display:inline-block;">
@@ -606,6 +628,11 @@
     ov.style.position = 'fixed'; ov.style.inset = '0'; ov.style.borderRadius = '0';
     ov.classList.add('show');
     try {
+      // 닉네임 텍스트가 웹폰트로 그려지도록 폰트 로드 대기
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.load(`${10.5 * 2}px 'Noto Sans KR'`); } catch(e) {}
+        await document.fonts.ready;
+      }
       await new Promise(r => setTimeout(r, 40));
       ov.classList.remove('show');
       await new Promise(r => setTimeout(r, 30));
@@ -667,6 +694,19 @@
 
       // 카드 이미지를 여백 포함 최종 canvas에 그리기
       ctx.drawImage(cvs, PAD * SCALE, PAD * SCALE);
+
+      // 커미션주 닉네임을 아래쪽 여백 가운데에 그리기
+      const nick = document.getElementById('nick-input').value.trim();
+      if (nick) {
+        ctx.fillStyle = '#b0b0b0';
+        ctx.font = `${10.5 * SCALE}px 'Noto Sans KR', sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // 카드 아래, 하단 여백 안쪽에 더 가깝게 배치
+        const cardBottom = (PAD + cardRect.height) * SCALE;
+        const textY = cardBottom + (PAD * SCALE) * 0.72;
+        ctx.fillText(nick, CW / 2, textY);
+      }
 
       const dataUrl = final.toDataURL('image/png');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
