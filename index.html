@@ -211,7 +211,7 @@
     font-size: 8px;
     font-family: inherit;
     font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    text-shadow: none;
     padding: 0;
     line-height: 1.4;
     cursor: text;
@@ -722,10 +722,7 @@
           cx.font = `600 ${fontSize}px 'Noto Sans KR', sans-serif`;
           cx.textAlign = 'left';
           cx.textBaseline = 'bottom';
-          cx.shadowColor = 'rgba(0,0,0,0.6)';
-          cx.shadowBlur = 3;
           cx.fillText(nick, 5, cellH - 4, cellW - 10);
-          cx.shadowBlur = 0;
         }
 
         img.src = c.toDataURL('image/png');
