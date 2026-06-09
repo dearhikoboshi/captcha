@@ -363,9 +363,11 @@
     cursor: grab;
     user-select: none;
     touch-action: none;
+    width: 300px;
+    height: 300px;
   }
   .crop-box.grabbing { cursor: grabbing; }
-  .crop-box canvas { display: block; }
+  .crop-box canvas { display: block; width: 300px; height: 300px; }
   .crop-box .crop-frame {
     position: absolute;
     inset: 0;
@@ -571,7 +573,7 @@
   let cropImg = new Image();
   let cropX = 0, cropY = 0, cropZoom = 1;
   let dragStart = null;
-  const BOX = 300;
+  const BOX = 600; // 고해상도 크롭을 위해 2배 크기
 
   function openCrop(i) {
     cropIdx = i;
@@ -617,16 +619,20 @@
     render();
   }
 
+  // 크롭 박스 표시 크기(300) vs 캔버스 실제 크기(600)의 비율
+  const CROP_DISPLAY = 300;
+  const CROP_RATIO = BOX / CROP_DISPLAY; // 2
+
   // 드래그
   const cropBox = document.getElementById('crop-box');
   cropBox.addEventListener('mousedown', e => {
-    dragStart = { x: e.clientX - cropX, y: e.clientY - cropY };
+    dragStart = { x: e.clientX * CROP_RATIO - cropX, y: e.clientY * CROP_RATIO - cropY };
     cropBox.classList.add('grabbing');
   });
   window.addEventListener('mousemove', e => {
     if (!dragStart) return;
-    cropX = e.clientX - dragStart.x;
-    cropY = e.clientY - dragStart.y;
+    cropX = e.clientX * CROP_RATIO - dragStart.x;
+    cropY = e.clientY * CROP_RATIO - dragStart.y;
     drawCrop();
   });
   window.addEventListener('mouseup', () => { dragStart = null; cropBox.classList.remove('grabbing'); });
@@ -634,14 +640,14 @@
   // 터치
   cropBox.addEventListener('touchstart', e => {
     const t = e.touches[0];
-    dragStart = { x: t.clientX - cropX, y: t.clientY - cropY };
+    dragStart = { x: t.clientX * CROP_RATIO - cropX, y: t.clientY * CROP_RATIO - cropY };
   });
   cropBox.addEventListener('touchmove', e => {
     if (!dragStart) return;
     e.preventDefault();
     const t = e.touches[0];
-    cropX = t.clientX - dragStart.x;
-    cropY = t.clientY - dragStart.y;
+    cropX = t.clientX * CROP_RATIO - dragStart.x;
+    cropY = t.clientY * CROP_RATIO - dragStart.y;
     drawCrop();
   }, { passive: false });
   cropBox.addEventListener('touchend', () => { dragStart = null; });
@@ -700,29 +706,33 @@
         const cellH = cell.offsetHeight || 96;
         const iw = img.naturalWidth, ih = img.naturalHeight;
         if (!iw || !ih) { originalSrcs[originalSrcs.length-1] = null; return; }
-        const sc = Math.max(cellW / iw, cellH / ih);
+        // SCALE 배율로 고해상도 캔버스 생성
+        const cW = cellW * SCALE, cH = cellH * SCALE;
+        const sc = Math.max(cW / iw, cH / ih);
         const dw = iw * sc, dh = ih * sc;
-        const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
+        const ox = (cW - dw) / 2, oy = (cH - dh) / 2;
         const c = document.createElement('canvas');
-        c.width = cellW; c.height = cellH;
+        c.width = cW; c.height = cH;
         const cx = c.getContext('2d');
+        cx.imageSmoothingEnabled = true;
+        cx.imageSmoothingQuality = 'high';
         cx.drawImage(img, ox, oy, dw, dh);
 
         // 닉네임 오버레이 합성
         const nick = cells[idx] ? cells[idx].nick : '';
         if (nick) {
-          const fontSize = Math.max(7, cellW * 0.08);
+          const fontSize = Math.max(7, cW * 0.08);
           const gradH = fontSize * 2.4;
-          const grad = cx.createLinearGradient(0, cellH - gradH, 0, cellH);
+          const grad = cx.createLinearGradient(0, cH - gradH, 0, cH);
           grad.addColorStop(0, 'rgba(0,0,0,0)');
           grad.addColorStop(1, 'rgba(0,0,0,0.48)');
           cx.fillStyle = grad;
-          cx.fillRect(0, cellH - gradH, cellW, gradH);
+          cx.fillRect(0, cH - gradH, cW, gradH);
           cx.fillStyle = '#fff';
           cx.font = `600 ${fontSize}px 'Noto Sans KR', sans-serif`;
           cx.textAlign = 'left';
           cx.textBaseline = 'bottom';
-          cx.fillText(nick, 5, cellH - 4, cellW - 10);
+          cx.fillText(nick, 5 * SCALE, cH - 4 * SCALE, (cW - 10 * SCALE));
         }
 
         img.src = c.toDataURL('image/png');
