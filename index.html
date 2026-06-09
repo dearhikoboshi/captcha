@@ -658,7 +658,29 @@
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, CW, CH);
 
-      // html2canvas로 카드만 캡처 (img 교체 없이)
+      // 저장 전에 각 셀 img를 canvas로 미리 변환 (iOS naturalWidth=0 문제 방지)
+      const cellEls = card.querySelectorAll('.cell');
+      const originalSrcs = [];
+      cellEls.forEach(cell => {
+        const img = cell.querySelector('img');
+        if (!img) { originalSrcs.push(null); return; }
+        originalSrcs.push(img.src);
+        const cellW = cell.offsetWidth || 96;
+        const cellH = cell.offsetHeight || 96;
+        // 이미지가 이미 로드돼 있으므로 naturalWidth 직접 사용
+        const iw = img.naturalWidth, ih = img.naturalHeight;
+        if (!iw || !ih) { originalSrcs[originalSrcs.length-1] = null; return; }
+        const sc = Math.max(cellW / iw, cellH / ih);
+        const dw = iw * sc, dh = ih * sc;
+        const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
+        const c = document.createElement('canvas');
+        c.width = cellW; c.height = cellH;
+        c.getContext('2d').drawImage(img, ox, oy, dw, dh);
+        img.src = c.toDataURL('image/png');
+        img.style.objectFit = 'fill';
+      });
+
+      // html2canvas로 카드만 캡처
       const cvs = await html2canvas(card, {
         scale: SCALE,
         useCORS: true,
@@ -667,34 +689,23 @@
         logging: false,
         imageTimeout: 0,
         onclone: (doc) => {
-          // SVG 아이콘에 명시적 크기·색상 부여 (html2canvas가 viewBox/currentColor만으로는 못 그림)
+          // SVG 아이콘에 명시적 크기·색상 부여
           doc.querySelectorAll('.icon-btn svg').forEach(svg => {
             svg.setAttribute('width', '26');
             svg.setAttribute('height', '26');
             svg.querySelectorAll('path').forEach(p => p.setAttribute('fill', '#666'));
           });
-          // 복제된 DOM에서 각 img를 object-fit:cover 크롭으로 교체
-          doc.querySelectorAll('.cell').forEach(cell => {
-            const img = cell.querySelector('img');
-            if (!img) return;
-            const cellW = cell.offsetWidth || 96;
-            const cellH = cell.offsetHeight || 96;
-            const iw = img.naturalWidth, ih = img.naturalHeight;
-            if (!iw || !ih) return;
-            const scale = Math.max(cellW / iw, cellH / ih);
-            const dw = iw * scale, dh = ih * scale;
-            const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
-            const c = document.createElement('canvas');
-            c.width = cellW; c.height = cellH;
-            c.getContext('2d').drawImage(img, ox, oy, dw, dh);
-            img.src = c.toDataURL('image/png');
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'fill';
-          });
           // 카드 외곽선
           doc.getElementById('card').style.border = '1px solid #d0d0d0';
         }
+      });
+
+      // img src 원복
+      cellEls.forEach((cell, idx) => {
+        const img = cell.querySelector('img');
+        if (!img || !originalSrcs[idx]) return;
+        img.src = originalSrcs[idx];
+        img.style.objectFit = 'cover';
       });
 
       // 카드 이미지를 여백 포함 최종 canvas에 그리기
