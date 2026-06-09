@@ -236,6 +236,7 @@
     color: #555;
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   input[type=color] {
@@ -256,13 +257,17 @@
   .color-panel.hidden { display: none; }
 
   /* ── 커미션주 닉네임 입력 ── */
-  #nick-panel { margin-top: -6px; }
+  #nick-panel {
+    margin-top: -6px;
+    justify-content: flex-start;
+  }
   #nick-input {
     flex: 1;
+    min-width: 0;
     border: 2px solid #dde2ea;
     border-radius: 6px;
     padding: 6px 10px;
-    font-size: 13px;
+    font-size: 16px;
     font-family: inherit;
     color: #555;
     outline: none;
