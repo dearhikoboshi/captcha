@@ -183,7 +183,7 @@
     letter-spacing: 0.1px;
     transition: background 0.14s, box-shadow 0.14s;
     flex-shrink: 0;
-    align-self: stretch;
+    align-self: center;
     margin-right: 8px;
   }
 
@@ -605,18 +605,18 @@
     document.querySelectorAll('.cell-del').forEach(b => b.style.display = 'none');
     ov.style.position = 'fixed'; ov.style.inset = '0'; ov.style.borderRadius = '0';
     ov.classList.add('show');
-
     try {
       await new Promise(r => setTimeout(r, 40));
       ov.classList.remove('show');
       await new Promise(r => setTimeout(r, 30));
 
-      const SCALE = 4;
-      const PAD = 20;
+      // 카드 실제 크기 측정
       const card = document.getElementById('card');
       const cardRect = card.getBoundingClientRect();
-      const CW = Math.round((cardRect.width + PAD * 2) * SCALE);
-      const CH = Math.round((cardRect.height + PAD * 2) * SCALE);
+      const SCALE = 2;
+      const PAD = 56; // 저장 시 여백 (iOS·안드로이드 동일)
+      const CW = (cardRect.width + PAD * 2) * SCALE;
+      const CH = (cardRect.height + PAD * 2) * SCALE;
 
       const final = document.createElement('canvas');
       final.width = CW; final.height = CH;
@@ -626,139 +626,47 @@
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, CW, CH);
 
-      // 카드 테두리
-      const cx = PAD * SCALE, cy = PAD * SCALE;
-      const cw = cardRect.width * SCALE, ch = cardRect.height * SCALE;
-      ctx.strokeStyle = '#d0d0d0';
-      ctx.lineWidth = 1 * SCALE;
-      ctx.beginPath();
-      ctx.roundRect(cx, cy, cw, ch, 4 * SCALE);
-      ctx.stroke();
-
-      // 카드 흰 배경
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.roundRect(cx, cy, cw, ch, 4 * SCALE);
-      ctx.fill();
-
-      // 헤더 색상
-      const headerColor = document.querySelector('.header').style.background || '#4a90d9';
-      const headerEl = document.querySelector('.header');
-      const headerRect = headerEl.getBoundingClientRect();
-      const hx = cx + (headerRect.left - cardRect.left) * SCALE;
-      const hy = cy + (headerRect.top - cardRect.top) * SCALE;
-      const hw = headerRect.width * SCALE;
-      const hh = headerRect.height * SCALE;
-
-      ctx.fillStyle = headerColor;
-      ctx.beginPath();
-      ctx.roundRect(hx, hy, hw, hh, [4 * SCALE, 4 * SCALE, 0, 0]);
-      ctx.fill();
-
-      // 헤더 텍스트 (제목)
-      const titleEl = document.getElementById('title');
-      const titleRect = titleEl.getBoundingClientRect();
-      ctx.fillStyle = '#fff';
-      ctx.font = `900 ${28 * SCALE}px "Noto Sans KR", sans-serif`;
-      ctx.fillText(
-        titleEl.textContent,
-        cx + (titleRect.left - cardRect.left) * SCALE,
-        cy + (titleRect.bottom - cardRect.top) * SCALE - 4 * SCALE
-      );
-
-      // 헤더 설명 텍스트
-      const descEl = document.querySelector('.header-desc');
-      const descRect = descEl.getBoundingClientRect();
-      ctx.font = `400 ${11.5 * SCALE}px "Noto Sans KR", sans-serif`;
-      const descLines = descEl.innerText.split('\n');
-      const lineH = 11.5 * 1.55 * SCALE;
-      descLines.forEach((line, i) => {
-        ctx.fillText(
-          line,
-          cx + (descRect.left - cardRect.left) * SCALE,
-          cy + (descRect.top - cardRect.top) * SCALE + lineH * (i + 1) - 2 * SCALE
-        );
-      });
-
-      // 그리드 이미지들
-      const gridEl = document.getElementById('grid');
-      const gridRect = gridEl.getBoundingClientRect();
-      const gx = cx + (gridRect.left - cardRect.left) * SCALE;
-      const gy = cy + (gridRect.top - cardRect.top) * SCALE;
-      const gw = gridRect.width * SCALE;
-      const gh = gridRect.height * SCALE;
-
-      // 그리드 흰 배경
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(gx, gy, gw, gh);
-
-      const cellEls = document.querySelectorAll('.cell');
-      const gap = 4 * SCALE;
-      const cols = 3;
-      const cellSize = (gw - gap * (cols - 1)) / cols;
-
-      const imagePromises = cells.map((cell, i) => {
-        if (!cell.src) return Promise.resolve(null);
-        return new Promise(res => {
-          const img = new Image();
-          img.onload = () => res(img);
-          img.onerror = () => res(null);
-          img.src = cell.cropped || cell.src;
-        });
-      });
-
-      const loadedImgs = await Promise.all(imagePromises);
-
-      loadedImgs.forEach((img, i) => {
-        const col = i % cols, row = Math.floor(i / cols);
-        const cx2 = gx + col * (cellSize + gap);
-        const cy2 = gy + row * (cellSize + gap);
-
-        if (img) {
-          // object-fit: cover 크롭
-          const iw = img.naturalWidth, ih = img.naturalHeight;
-          const scale = Math.max(cellSize / iw, cellSize / ih);
-          const dw = iw * scale, dh = ih * scale;
-          const ox = (cellSize - dw) / 2, oy = (cellSize - dh) / 2;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(cx2, cy2, cellSize, cellSize);
-          ctx.clip();
-          ctx.drawImage(img, cx2 + ox, cy2 + oy, dw, dh);
-          ctx.restore();
-        } else {
-          ctx.fillStyle = '#d8dce4';
-          ctx.fillRect(cx2, cy2, cellSize, cellSize);
+      // html2canvas로 카드만 캡처 (img 교체 없이)
+      const cvs = await html2canvas(card, {
+        scale: SCALE,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#fff',
+        logging: false,
+        imageTimeout: 0,
+        onclone: (doc) => {
+          // SVG 아이콘에 명시적 크기·색상 부여 (html2canvas가 viewBox/currentColor만으로는 못 그림)
+          doc.querySelectorAll('.icon-btn svg').forEach(svg => {
+            svg.setAttribute('width', '26');
+            svg.setAttribute('height', '26');
+            svg.querySelectorAll('path').forEach(p => p.setAttribute('fill', '#666'));
+          });
+          // 복제된 DOM에서 각 img를 object-fit:cover 크롭으로 교체
+          doc.querySelectorAll('.cell').forEach(cell => {
+            const img = cell.querySelector('img');
+            if (!img) return;
+            const cellW = cell.offsetWidth || 96;
+            const cellH = cell.offsetHeight || 96;
+            const iw = img.naturalWidth, ih = img.naturalHeight;
+            if (!iw || !ih) return;
+            const scale = Math.max(cellW / iw, cellH / ih);
+            const dw = iw * scale, dh = ih * scale;
+            const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
+            const c = document.createElement('canvas');
+            c.width = cellW; c.height = cellH;
+            c.getContext('2d').drawImage(img, ox, oy, dw, dh);
+            img.src = c.toDataURL('image/png');
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'fill';
+          });
+          // 카드 외곽선
+          doc.getElementById('card').style.border = '1px solid #d0d0d0';
         }
       });
 
-      // 푸터 구분선
-      const footerEl = document.querySelector('.footer');
-      const footerRect = footerEl.getBoundingClientRect();
-      const fy = cy + (footerRect.top - cardRect.top) * SCALE;
-      ctx.strokeStyle = '#e0e0e0';
-      ctx.lineWidth = 1 * SCALE;
-      ctx.beginPath();
-      ctx.moveTo(cx, fy); ctx.lineTo(cx + cw, fy);
-      ctx.stroke();
-
-      // 확인 버튼
-      const btnEl = document.querySelector('.btn-confirm');
-      const btnRect = btnEl.getBoundingClientRect();
-      const btnColor = btnEl.style.background || headerColor;
-      const bx = cx + (btnRect.left - cardRect.left) * SCALE;
-      const by = cy + (btnRect.top - cardRect.top) * SCALE;
-      const bw = btnRect.width * SCALE;
-      const bh = btnRect.height * SCALE;
-      ctx.fillStyle = btnColor;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 4 * SCALE);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.font = `700 ${16 * SCALE}px "Noto Sans KR", sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText('확인', bx + bw / 2, by + bh / 2 + 6 * SCALE);
-      ctx.textAlign = 'left';
+      // 카드 이미지를 여백 포함 최종 canvas에 그리기
+      ctx.drawImage(cvs, PAD * SCALE, PAD * SCALE);
 
       const dataUrl = final.toDataURL('image/png');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -775,7 +683,6 @@
       }
       toast('저장 완료!');
     } catch(e) { console.error(e); toast('저장 실패'); }
-
     document.querySelectorAll('.cell-del').forEach(b => b.style.display = '');
     descLine.style.borderBottom = '1px solid rgba(255,255,255,0.4)';
     ov.style.position = ''; ov.style.inset = ''; ov.style.borderRadius = '';
