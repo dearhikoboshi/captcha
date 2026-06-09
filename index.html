@@ -192,6 +192,32 @@
     box-shadow: 0 2px 8px rgba(74,144,217,0.4);
   }
 
+  /* ── 셀 닉네임 오버레이 ── */
+  .cell-nick-wrap {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 3px 5px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.45));
+    z-index: 3;
+    display: flex;
+    align-items: center;
+  }
+  .cell-nick-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 8px;
+    font-family: inherit;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    padding: 0;
+    line-height: 1.4;
+    cursor: text;
+  }
+  .cell-nick-input::placeholder { color: rgba(255,255,255,0.55); font-weight: 400; }
+
   /* ── saving overlay ── */
   .saving {
     display: none;
@@ -397,11 +423,6 @@
   <button class="btn-save-panel" onclick="saveImage()">저장하기</button>
 </div>
 
-<!-- 커미션주 닉네임 패널 -->
-<div class="color-panel" id="nick-panel">
-  <label for="nick-input">커미션주</label>
-  <input type="text" id="nick-input" placeholder="닉네임 입력" maxlength="30">
-</div>
 
 <div id="capture-wrapper" style="display:inline-block;">
 <div class="card" id="card">
@@ -466,7 +487,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-  let cells = Array.from({ length: 9 }, () => ({ src: null, cropped: null }));
+  let cells = Array.from({ length: 9 }, () => ({ src: null, cropped: null, nick: '' }));
 
   // ── 렌더 ──
   function render() {
@@ -484,7 +505,7 @@
         const del = document.createElement('button');
         del.className = 'cell-del';
         del.textContent = '×';
-        del.onclick = e => { e.stopPropagation(); cells[i] = { src: null, cropped: null }; render(); };
+        del.onclick = e => { e.stopPropagation(); cells[i] = { src: null, cropped: null, nick: '' }; render(); };
         div.appendChild(del);
 
         // 자르기 버튼
@@ -494,6 +515,20 @@
         cropBtn.style.cssText = 'right:28px; background:rgba(0,0,0,0.55);';
         cropBtn.onclick = e => { e.stopPropagation(); openCrop(i); };
         div.appendChild(cropBtn);
+
+        // 닉네임 입력 오버레이
+        const nickWrap = document.createElement('div');
+        nickWrap.className = 'cell-nick-wrap';
+        const nickInput = document.createElement('input');
+        nickInput.type = 'text';
+        nickInput.className = 'cell-nick-input';
+        nickInput.placeholder = '커미션주';
+        nickInput.maxLength = 20;
+        nickInput.value = cell.nick || '';
+        nickInput.addEventListener('input', e => { cells[i].nick = e.target.value; });
+        nickInput.addEventListener('click', e => e.stopPropagation());
+        nickWrap.appendChild(nickInput);
+        div.appendChild(nickWrap);
       } else {
         const em = document.createElement('div');
         em.className = 'cell-empty';
@@ -527,7 +562,7 @@
   }
 
   function clearAll() {
-    cells = cells.map(() => ({ src: null, cropped: null })); render();
+    cells = cells.map(() => ({ src: null, cropped: null, nick: '' })); render();
     toast('초기화했어요');
   }
 
@@ -633,11 +668,6 @@
     ov.style.position = 'fixed'; ov.style.inset = '0'; ov.style.borderRadius = '0';
     ov.classList.add('show');
     try {
-      // 닉네임 텍스트가 웹폰트로 그려지도록 폰트 로드 대기
-      if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.load(`${10.5 * 2}px 'Noto Sans KR'`); } catch(e) {}
-        await document.fonts.ready;
-      }
       await new Promise(r => setTimeout(r, 40));
       ov.classList.remove('show');
       await new Promise(r => setTimeout(r, 30));
@@ -645,8 +675,8 @@
       // 카드 실제 크기 측정
       const card = document.getElementById('card');
       const cardRect = card.getBoundingClientRect();
-      const SCALE = 2;
-      const PAD = 56; // 저장 시 여백 (iOS·안드로이드 동일)
+      const SCALE = 3;
+      const PAD = 32;
       const CW = (cardRect.width + PAD * 2) * SCALE;
       const CH = (cardRect.height + PAD * 2) * SCALE;
 
@@ -659,15 +689,15 @@
       ctx.fillRect(0, 0, CW, CH);
 
       // 저장 전에 각 셀 img를 canvas로 미리 변환 (iOS naturalWidth=0 문제 방지)
+      // 닉네임도 함께 합성
       const cellEls = card.querySelectorAll('.cell');
       const originalSrcs = [];
-      cellEls.forEach(cell => {
+      cellEls.forEach((cell, idx) => {
         const img = cell.querySelector('img');
         if (!img) { originalSrcs.push(null); return; }
         originalSrcs.push(img.src);
         const cellW = cell.offsetWidth || 96;
         const cellH = cell.offsetHeight || 96;
-        // 이미지가 이미 로드돼 있으므로 naturalWidth 직접 사용
         const iw = img.naturalWidth, ih = img.naturalHeight;
         if (!iw || !ih) { originalSrcs[originalSrcs.length-1] = null; return; }
         const sc = Math.max(cellW / iw, cellH / ih);
@@ -675,7 +705,29 @@
         const ox = (cellW - dw) / 2, oy = (cellH - dh) / 2;
         const c = document.createElement('canvas');
         c.width = cellW; c.height = cellH;
-        c.getContext('2d').drawImage(img, ox, oy, dw, dh);
+        const cx = c.getContext('2d');
+        cx.drawImage(img, ox, oy, dw, dh);
+
+        // 닉네임 오버레이 합성
+        const nick = cells[idx] ? cells[idx].nick : '';
+        if (nick) {
+          const fontSize = Math.max(7, cellW * 0.08);
+          const gradH = fontSize * 2.4;
+          const grad = cx.createLinearGradient(0, cellH - gradH, 0, cellH);
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(1, 'rgba(0,0,0,0.48)');
+          cx.fillStyle = grad;
+          cx.fillRect(0, cellH - gradH, cellW, gradH);
+          cx.fillStyle = '#fff';
+          cx.font = `600 ${fontSize}px 'Noto Sans KR', sans-serif`;
+          cx.textAlign = 'left';
+          cx.textBaseline = 'bottom';
+          cx.shadowColor = 'rgba(0,0,0,0.6)';
+          cx.shadowBlur = 3;
+          cx.fillText(nick, 5, cellH - 4, cellW - 10);
+          cx.shadowBlur = 0;
+        }
+
         img.src = c.toDataURL('image/png');
         img.style.objectFit = 'fill';
       });
@@ -710,19 +762,6 @@
 
       // 카드 이미지를 여백 포함 최종 canvas에 그리기
       ctx.drawImage(cvs, PAD * SCALE, PAD * SCALE);
-
-      // 커미션주 닉네임을 아래쪽 여백 가운데에 그리기
-      const nick = document.getElementById('nick-input').value.trim();
-      if (nick) {
-        ctx.fillStyle = '#b0b0b0';
-        ctx.font = `${10.5 * SCALE}px 'Noto Sans KR', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        // 카드 아래, 하단 여백 안쪽에 더 가깝게 배치
-        const cardBottom = (PAD + cardRect.height) * SCALE;
-        const textY = cardBottom + (PAD * SCALE) * 0.72;
-        ctx.fillText(nick, CW / 2, textY);
-      }
 
       const dataUrl = final.toDataURL('image/png');
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
