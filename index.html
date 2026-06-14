@@ -197,10 +197,13 @@
     position: absolute;
     bottom: 0; left: 0; right: 0;
     padding: 3px 5px;
-    background: linear-gradient(transparent, rgba(0,0,0,0.45));
+    background: transparent;
     z-index: 3;
     display: flex;
     align-items: center;
+  }
+  .cell-nick-wrap.has-text {
+    background: linear-gradient(transparent, rgba(0,0,0,0.45));
   }
   .cell-nick-input {
     width: 100%;
@@ -521,13 +524,17 @@
         // 닉네임 입력 오버레이
         const nickWrap = document.createElement('div');
         nickWrap.className = 'cell-nick-wrap';
+        if (cell.nick) nickWrap.classList.add('has-text');
         const nickInput = document.createElement('input');
         nickInput.type = 'text';
         nickInput.className = 'cell-nick-input';
         nickInput.placeholder = '커미션주';
         nickInput.maxLength = 20;
         nickInput.value = cell.nick || '';
-        nickInput.addEventListener('input', e => { cells[i].nick = e.target.value; });
+        nickInput.addEventListener('input', e => {
+          cells[i].nick = e.target.value;
+          nickWrap.classList.toggle('has-text', !!e.target.value);
+        });
         nickInput.addEventListener('click', e => e.stopPropagation());
         nickWrap.appendChild(nickInput);
         div.appendChild(nickWrap);
