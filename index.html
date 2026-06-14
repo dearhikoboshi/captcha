@@ -202,15 +202,12 @@
     display: flex;
     align-items: center;
   }
-  .cell-nick-wrap.has-text {
-    background: linear-gradient(transparent, rgba(0,0,0,0.45));
-  }
   .cell-nick-input {
     width: 100%;
     background: transparent;
     border: none;
     outline: none;
-    color: #fff;
+    color: #d9d9d9;
     font-size: 8px;
     font-family: inherit;
     font-weight: 600;
@@ -219,7 +216,7 @@
     line-height: 1.4;
     cursor: text;
   }
-  .cell-nick-input::placeholder { color: rgba(255,255,255,0.55); font-weight: 400; }
+  .cell-nick-input::placeholder { color: #d9d9d9; font-weight: 400; }
 
   /* ── saving overlay ── */
   .saving {
@@ -524,17 +521,13 @@
         // 닉네임 입력 오버레이
         const nickWrap = document.createElement('div');
         nickWrap.className = 'cell-nick-wrap';
-        if (cell.nick) nickWrap.classList.add('has-text');
         const nickInput = document.createElement('input');
         nickInput.type = 'text';
         nickInput.className = 'cell-nick-input';
         nickInput.placeholder = '커미션주';
         nickInput.maxLength = 20;
         nickInput.value = cell.nick || '';
-        nickInput.addEventListener('input', e => {
-          cells[i].nick = e.target.value;
-          nickWrap.classList.toggle('has-text', !!e.target.value);
-        });
+        nickInput.addEventListener('input', e => { cells[i].nick = e.target.value; });
         nickInput.addEventListener('click', e => e.stopPropagation());
         nickWrap.appendChild(nickInput);
         div.appendChild(nickWrap);
@@ -729,13 +722,7 @@
         const nick = cells[idx] ? cells[idx].nick : '';
         if (nick) {
           const fontSize = Math.max(7, cW * 0.08);
-          const gradH = fontSize * 2.4;
-          const grad = cx.createLinearGradient(0, cH - gradH, 0, cH);
-          grad.addColorStop(0, 'rgba(0,0,0,0)');
-          grad.addColorStop(1, 'rgba(0,0,0,0.48)');
-          cx.fillStyle = grad;
-          cx.fillRect(0, cH - gradH, cW, gradH);
-          cx.fillStyle = '#fff';
+          cx.fillStyle = '#d9d9d9';
           cx.font = `600 ${fontSize}px 'Noto Sans KR', sans-serif`;
           cx.textAlign = 'left';
           cx.textBaseline = 'bottom';
